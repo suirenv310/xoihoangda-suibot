@@ -142,10 +142,10 @@ function getRoleDistribution(playerCount) {
     if (playerCount === 7) return { [ROLE.WEREWOLF]: 2, [ROLE.GUARD]: 1, [ROLE.SEER]: 1 };
     // 8:  Sói=2, BảoVệ=1, TiênTri=1, BánSói=1 → Dân=3
     if (playerCount === 8) return { [ROLE.WEREWOLF]: 2, [ROLE.GUARD]: 1, [ROLE.SEER]: 1, [ROLE.HALF_WOLF]: 1 };
-    // 9:  Sói=2, BảoVệ=1, TiênTri=1, PhùThủy=1, ThợSăn=1 → Dân=3
-    if (playerCount === 9) return { [ROLE.WEREWOLF]: 2, [ROLE.GUARD]: 1, [ROLE.SEER]: 1, [ROLE.WITCH]: 1, [ROLE.HUNTER]: 1 };
-    // 10: Sói=2, BảoVệ=1, TiênTri=1, PhùThủy=1, ThợSăn=1, QuảnNgục=1, BánSói=1 → Dân=2
-    if (playerCount === 10) return { [ROLE.WEREWOLF]: 2, [ROLE.GUARD]: 1, [ROLE.SEER]: 1, [ROLE.WITCH]: 1, [ROLE.HUNTER]: 1, [ROLE.JAILER]: 1, [ROLE.HALF_WOLF]: 1 };
+    // 9:  Sói=2, BảoVệ=1, TiênTri=1, PhùThủy=1, ThợSăn=1, BánSói=1 → Dân=2
+    if (playerCount === 9) return { [ROLE.WEREWOLF]: 2, [ROLE.GUARD]: 1, [ROLE.SEER]: 1, [ROLE.WITCH]: 1, [ROLE.HUNTER]: 1, [ROLE.HALF_WOLF]: 1 };
+    // 10: Sói=2, BảoVệ=1, TiênTri=1, PhùThủy=1, ThợSăn=1, BánSói=1 → Dân=3
+    if (playerCount === 10) return { [ROLE.WEREWOLF]: 2, [ROLE.GUARD]: 1, [ROLE.SEER]: 1, [ROLE.WITCH]: 1, [ROLE.HUNTER]: 1, [ROLE.HALF_WOLF]: 1 };
     // 11: Sói=2, SóiTT=1, BảoVệ=1, TiênTri=1, PhùThủy=1, ThợSăn=1, QuảnNgục=1, BánSói=1, Cupid=1 → Dân=1
     if (playerCount === 11) return { [ROLE.WEREWOLF]: 2, [ROLE.WOLF_SEER]: 1, [ROLE.GUARD]: 1, [ROLE.SEER]: 1, [ROLE.WITCH]: 1, [ROLE.HUNTER]: 1, [ROLE.JAILER]: 1, [ROLE.HALF_WOLF]: 1, [ROLE.CUPID]: 1 };
     // 12: Sói=2, SóiTT=1, BảoVệ=1, TiênTri=1, PhùThủy=1, ThợSăn=1, QuảnNgục=1, TTTậpSự=1, BánSói=1, Cupid=1 → Dân=1
