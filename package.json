@@ -1,0 +1,14 @@
+{
+  "name": "sltd-bot",
+  "version": "1.0.0",
+  "description": "SLTĐ's Bot — Trò chơi Ma Sói (Werewolf)",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "deploy": "node src/deploy-commands.js"
+  },
+  "dependencies": {
+    "discord.js": "^14.26.2",
+    "dotenv": "^17.4.0"
+  }
+}

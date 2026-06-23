@@ -1,0 +1,7 @@
+node_modules/
+.env
+src/data/*.json
+*.bak
+*.bak-*
+.DS_Store
+.claude/settings.local.json
