@@ -405,12 +405,30 @@ async function setupWolfChannelAccess(game, client, guild) {
     }
 
     // Add all current wolves (WEREWOLF + WOLF_SEER) — bán sói added on transform.
+    const addedWolves = [];
     for (const w of game.getWolfChannelMembers()) {
         try {
             await wolfCh.permissionOverwrites.edit(w.discordId, WOLF_CHANNEL_PERMS);
             game.addWolfChannelAccess(w.discordId);
+            addedWolves.push(w);
         } catch (e) {
             console.error(`[masoi] wolfCh add ${w.displayName} fail:`, e.message);
+        }
+    }
+
+    // Ping the wolves in their channel so they notice they've been added.
+    if (addedWolves.length > 0) {
+        try {
+            const mentions = addedWolves.map(w => `<@${w.discordId}>`).join(' ');
+            await wolfCh.send({
+                content: mentions,
+                embeds: [new EmbedBuilder()
+                    .setColor(0x8b0000)
+                    .setTitle('🐺 Hội Sói tập hợp!')
+                    .setDescription('Đây là kênh chat riêng của phe Sói. Hãy bàn bạc với đồng minh — nhưng quyết định cắn ai vẫn phải chọn qua DM riêng với bot.')],
+            }).catch(() => {});
+        } catch (e) {
+            console.error('[masoi] wolfCh ping fail:', e.message);
         }
     }
 }
@@ -557,6 +575,9 @@ async function addWolfChannelUser(game, client, guild, player) {
     try {
         await wolfCh.permissionOverwrites.edit(player.discordId, WOLF_CHANNEL_PERMS);
         game.addWolfChannelAccess(player.discordId);
+        await wolfCh.send({
+            content: `<@${player.discordId}> là bán sói. Chúc mừng phe Sói kết nạp thêm thành viên!`,
+        }).catch(() => {});
     } catch (e) {
         console.error(`[masoi] wolfCh add ${player.displayName} fail:`, e.message);
     }
