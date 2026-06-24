@@ -1680,8 +1680,15 @@ async function runGameLoop(game, channel, client) {
     await channel.send({ embeds: [startEmbed] });
 
     while (true) {
+        // If /masoi stop forced this game to GAME_OVER from outside while we
+        // were mid-loop, bail out immediately — stop already did its own
+        // cleanup/reveal, so don't run another night or call endGame() again.
+        if (game.state === STATE.GAME_OVER) return;
+
         const nightResult = await runNight(game, channel, client);
         const { deaths, halfWolfBitten } = nightResult;
+
+        if (game.state === STATE.GAME_OVER) return;
 
         // 1. Announce night deaths to public (zero-leak format).
         await announceNightResult(game, channel, client, deaths, [], halfWolfBitten, nightResult);
@@ -1699,8 +1706,12 @@ async function runGameLoop(game, channel, client) {
         let win = game.checkWin();
         if (win) return await endGame(game, channel, client);
 
+        if (game.state === STATE.GAME_OVER) return;
+
         await runDayTalk(game, channel);
         const voteResult = await runDayVote(game, channel, client);
+
+        if (game.state === STATE.GAME_OVER) return;
 
         // Fool-win short-circuit
         if (voteResult.foolWin) {
@@ -1720,6 +1731,8 @@ async function runGameLoop(game, channel, client) {
                 await runHunterShot(game, channel, client, voteResult.couplePartnerDied, 'hang');
             }
         }
+
+        if (game.state === STATE.GAME_OVER) return;
 
         win = game.checkWin();
         if (win) return await endGame(game, channel, client);
@@ -1827,6 +1840,153 @@ async function endGame(game, channel, client) {
     }
 }
 
+// ── Lobby creation (shared by /masoi play and /masoi restart) ───────────────
+
+async function sendInteractionReply(interaction, payload) {
+    if (interaction.replied || interaction.deferred) {
+        return interaction.followUp(payload);
+    }
+    return interaction.reply({ ...payload, fetchReply: true });
+}
+
+async function createLobby(interaction, client, config, guildId) {
+    const settings = getSettings(guildId);
+    const gameChannelId = settings.gameChannelId || interaction.channel.id;
+
+    const game = new WerewolfGame(gameChannelId, interaction.user.id);
+    game.dayMinutes = settings.dayMinutes;
+    game.actionTimeoutMs = settings.actionSeconds * 1000;
+    game.wolfVoteTimeoutMs = settings.wolfVoteSeconds * 1000;
+    game.cupidTimeoutMs = settings.cupidSeconds * 1000;
+    game.nightProgressDm = settings.nightProgressDm;
+
+    activeGames.set(gameChannelId, game);
+
+    const gameChannel = interaction.guild.channels.cache.get(gameChannelId) || interaction.channel;
+
+    let deadInfo = '';
+    if (settings.deadChannelId) {
+        deadInfo = `\nKênh người chết: <#${settings.deadChannelId}> (role **${SAYONARA_ROLE_NAME}**)`;
+    }
+
+    const lobbyEmbed = new EmbedBuilder()
+        .setColor(config.colors.accent)
+        .setTitle("SLTĐ's Ma Sói — Lobby")
+        .setDescription(
+            `Host: ${interaction.user}\n` +
+            `Thời gian ngày: **${game.dayMinutes}p**` +
+            deadInfo + `\n\n` +
+            `Cần tối thiểu **${MIN_PLAYERS}** người (tối đa ${MAX_PLAYERS}).\n` +
+            `Bấm nút bên dưới để tham gia!\n\n` +
+            `**Người chơi (0):**\n_Chưa có ai_`
+        )
+        .setFooter({ text: 'Admin dùng /masoi start khi đủ người' });
+
+    const joinBtn = new ButtonBuilder()
+        .setCustomId('masoi_join')
+        .setLabel('Tham gia')
+        .setStyle(ButtonStyle.Success);
+
+    const leaveBtn = new ButtonBuilder()
+        .setCustomId('masoi_leave')
+        .setLabel('Rời')
+        .setStyle(ButtonStyle.Danger);
+
+    const row = new ActionRowBuilder().addComponents(joinBtn, leaveBtn);
+
+    let lobbyMsg;
+    if (gameChannelId !== interaction.channel.id) {
+        await sendInteractionReply(interaction, { content: `Lobby đã tạo tại <#${gameChannelId}>!`, flags: MessageFlags.Ephemeral });
+        lobbyMsg = await gameChannel.send({ embeds: [lobbyEmbed], components: [row] });
+    } else {
+        lobbyMsg = await sendInteractionReply(interaction, { embeds: [lobbyEmbed], components: [row] });
+    }
+
+    const collector = lobbyMsg.createMessageComponentCollector({
+        componentType: ComponentType.Button,
+        time: 24 * 60 * 60_000,  // FIX #2: 24h instead of 5min (was killing active lobbies)
+    });
+
+    collector.on('collect', async (btnInteraction) => {
+        const g = activeGames.get(gameChannelId);
+        if (!g) {
+            collector.stop();
+            return;
+        }
+        if (g.state !== STATE.LOBBY) {
+            // FIX #6: reply ephemeral so user knows why button did nothing
+            try {
+                await btnInteraction.reply({ content: 'Game đã bắt đầu, không thể thay đổi lobby.', flags: MessageFlags.Ephemeral });
+            } catch {}
+            collector.stop();
+            return;
+        }
+
+        if (btnInteraction.customId === 'masoi_join') {
+            const result = g.addPlayer(
+                btnInteraction.user.id,
+                btnInteraction.member?.displayName || btnInteraction.user.username
+            );
+
+            if (!result.ok) {
+                const reasons = {
+                    already_joined: 'Bạn đã tham gia rồi!',
+                    full: 'Lobby đã đầy!',
+                    not_lobby: 'Game đã bắt đầu!',
+                };
+                return btnInteraction.reply({ content: reasons[result.reason], flags: MessageFlags.Ephemeral });
+            }
+
+            const players = [...g.players.values()];
+            const list = players.map((p, i) => `${i + 1}. ${p.displayName}`).join('\n');
+
+            const updated = EmbedBuilder.from(lobbyMsg.embeds[0])
+                .setDescription(
+                    `Host: <@${g.hostId}>\n` +
+                    `Thời gian ngày: **${g.dayMinutes}p**` +
+                    deadInfo + `\n\n` +
+                    `Cần tối thiểu **${MIN_PLAYERS}** người (tối đa ${MAX_PLAYERS}).\n` +
+                    `Bấm nút bên dưới để tham gia!\n\n` +
+                    `**Người chơi (${players.length}):**\n${list}`
+                );
+
+            await btnInteraction.update({ embeds: [updated] });
+        }
+
+        if (btnInteraction.customId === 'masoi_leave') {
+            const result = g.removePlayer(btnInteraction.user.id);
+            if (!result.ok) {
+                return btnInteraction.reply({ content: 'Bạn không trong lobby!', flags: MessageFlags.Ephemeral });
+            }
+
+            const players = [...g.players.values()];
+            const list = players.length > 0
+                ? players.map((p, i) => `${i + 1}. ${p.displayName}`).join('\n')
+                : '_Chưa có ai_';
+
+            const updated = EmbedBuilder.from(lobbyMsg.embeds[0])
+                .setDescription(
+                    `Host: <@${g.hostId}>\n` +
+                    `Thời gian ngày: **${g.dayMinutes}p**` +
+                    deadInfo + `\n\n` +
+                    `Cần tối thiểu **${MIN_PLAYERS}** người (tối đa ${MAX_PLAYERS}).\n` +
+                    `Bấm nút bên dưới để tham gia!\n\n` +
+                    `**Người chơi (${players.length}):**\n${list}`
+                );
+
+            await btnInteraction.update({ embeds: [updated] });
+        }
+    });
+
+    collector.on('end', () => {
+        const g = activeGames.get(gameChannelId);
+        if (g && g.state === STATE.LOBBY) {
+            activeGames.delete(gameChannelId);
+            lobbyMsg.edit({ components: [] }).catch(() => {});
+        }
+    });
+}
+
 // ── Slash Command ───────────────────────────────────────────
 
 module.exports = {
@@ -1881,6 +2041,9 @@ module.exports = {
         .addSubcommand(sub =>
             sub.setName('stop')
                 .setDescription('Dừng ván Ma Sói (Admin/Host)'))
+        .addSubcommand(sub =>
+            sub.setName('restart')
+                .setDescription('Buộc dừng ván cũ (kể cả bị treo) và mở lobby mới ngay (Admin)'))
         .addSubcommand(sub =>
             sub.setName('settings')
                 .setDescription('Xem cài đặt hiện tại'))
@@ -2007,140 +2170,39 @@ module.exports = {
                 return interaction.reply({ content: 'Đang có ván Ma Sói đang chạy rồi!', flags: MessageFlags.Ephemeral });
             }
 
-            const game = new WerewolfGame(gameChannelId, interaction.user.id);
-            game.dayMinutes = settings.dayMinutes;
-            game.actionTimeoutMs = settings.actionSeconds * 1000;
-            game.wolfVoteTimeoutMs = settings.wolfVoteSeconds * 1000;
-            game.cupidTimeoutMs = settings.cupidSeconds * 1000;
-            game.nightProgressDm = settings.nightProgressDm;
+            return createLobby(interaction, client, config, guildId);
+        }
 
-            activeGames.set(gameChannelId, game);
+        // ── /masoi restart ───────────────────────────────
+        // Force-stops whatever game is tracked for this channel (even one
+        // stuck mid-loop) and immediately opens a fresh lobby in its place.
+        if (sub === 'restart') {
+            if (!interaction.member.permissions.has(PermissionFlagsBits.ManageGuild)) {
+                return interaction.reply({ content: 'Chỉ admin mới chạy được `/masoi restart`.', flags: MessageFlags.Ephemeral });
+            }
 
+            await interaction.deferReply();
+
+            const settings = getSettings(guildId);
+            const gameChannelId = settings.gameChannelId || interaction.channel.id;
             const gameChannel = interaction.guild.channels.cache.get(gameChannelId) || interaction.channel;
+            const game = activeGames.get(gameChannelId);
 
-            let deadInfo = '';
-            if (settings.deadChannelId) {
-                deadInfo = `\nKênh người chết: <#${settings.deadChannelId}> (role **${SAYONARA_ROLE_NAME}**)`;
-            }
-
-            const lobbyEmbed = new EmbedBuilder()
-                .setColor(config.colors.accent)
-                .setTitle("SLTĐ's Ma Sói — Lobby")
-                .setDescription(
-                    `Host: ${interaction.user}\n` +
-                    `Thời gian ngày: **${game.dayMinutes}p**` +
-                    deadInfo + `\n\n` +
-                    `Cần tối thiểu **${MIN_PLAYERS}** người (tối đa ${MAX_PLAYERS}).\n` +
-                    `Bấm nút bên dưới để tham gia!\n\n` +
-                    `**Người chơi (0):**\n_Chưa có ai_`
-                )
-                .setFooter({ text: 'Admin dùng /masoi start khi đủ người' });
-
-            const joinBtn = new ButtonBuilder()
-                .setCustomId('masoi_join')
-                .setLabel('Tham gia')
-                .setStyle(ButtonStyle.Success);
-
-            const leaveBtn = new ButtonBuilder()
-                .setCustomId('masoi_leave')
-                .setLabel('Rời')
-                .setStyle(ButtonStyle.Danger);
-
-            const row = new ActionRowBuilder().addComponents(joinBtn, leaveBtn);
-
-            let lobbyMsg;
-            if (gameChannelId !== interaction.channel.id) {
-                await interaction.reply({ content: `Lobby đã tạo tại <#${gameChannelId}>!`, flags: MessageFlags.Ephemeral });
-                lobbyMsg = await gameChannel.send({ embeds: [lobbyEmbed], components: [row] });
+            if (game) {
+                // Signal any in-flight runGameLoop to bail at its next
+                // checkpoint instead of continuing to run alongside the new lobby.
+                game.state = STATE.GAME_OVER;
+                activeGames.delete(gameChannelId);
+                await cleanupPermissions(game, gameChannel);
+                await cleanupWolfChannelAccess(game, client, gameChannel.guild);
             } else {
-                lobbyMsg = await interaction.reply({ embeds: [lobbyEmbed], components: [row], fetchReply: true });
+                // No tracked game (e.g. bot restarted mid-game) — clean the
+                // whole guild defensively, same as /masoi stop Mode B.
+                await cleanupGuildFully(interaction.guild);
             }
 
-            const collector = lobbyMsg.createMessageComponentCollector({
-                componentType: ComponentType.Button,
-                time: 24 * 60 * 60_000,  // FIX #2: 24h instead of 5min (was killing active lobbies)
-            });
-
-            collector.on('collect', async (btnInteraction) => {
-                const g = activeGames.get(gameChannelId);
-                if (!g) {
-                    collector.stop();
-                    return;
-                }
-                if (g.state !== STATE.LOBBY) {
-                    // FIX #6: reply ephemeral so user knows why button did nothing
-                    try {
-                        await btnInteraction.reply({ content: 'Game đã bắt đầu, không thể thay đổi lobby.', flags: MessageFlags.Ephemeral });
-                    } catch {}
-                    collector.stop();
-                    return;
-                }
-
-                if (btnInteraction.customId === 'masoi_join') {
-                    const result = g.addPlayer(
-                        btnInteraction.user.id,
-                        btnInteraction.member?.displayName || btnInteraction.user.username
-                    );
-
-                    if (!result.ok) {
-                        const reasons = {
-                            already_joined: 'Bạn đã tham gia rồi!',
-                            full: 'Lobby đã đầy!',
-                            not_lobby: 'Game đã bắt đầu!',
-                        };
-                        return btnInteraction.reply({ content: reasons[result.reason], flags: MessageFlags.Ephemeral });
-                    }
-
-                    const players = [...g.players.values()];
-                    const list = players.map((p, i) => `${i + 1}. ${p.displayName}`).join('\n');
-
-                    const updated = EmbedBuilder.from(lobbyMsg.embeds[0])
-                        .setDescription(
-                            `Host: <@${g.hostId}>\n` +
-                            `Thời gian ngày: **${g.dayMinutes}p**` +
-                            deadInfo + `\n\n` +
-                            `Cần tối thiểu **${MIN_PLAYERS}** người (tối đa ${MAX_PLAYERS}).\n` +
-                            `Bấm nút bên dưới để tham gia!\n\n` +
-                            `**Người chơi (${players.length}):**\n${list}`
-                        );
-
-                    await btnInteraction.update({ embeds: [updated] });
-                }
-
-                if (btnInteraction.customId === 'masoi_leave') {
-                    const result = g.removePlayer(btnInteraction.user.id);
-                    if (!result.ok) {
-                        return btnInteraction.reply({ content: 'Bạn không trong lobby!', flags: MessageFlags.Ephemeral });
-                    }
-
-                    const players = [...g.players.values()];
-                    const list = players.length > 0
-                        ? players.map((p, i) => `${i + 1}. ${p.displayName}`).join('\n')
-                        : '_Chưa có ai_';
-
-                    const updated = EmbedBuilder.from(lobbyMsg.embeds[0])
-                        .setDescription(
-                            `Host: <@${g.hostId}>\n` +
-                            `Thời gian ngày: **${g.dayMinutes}p**` +
-                            deadInfo + `\n\n` +
-                            `Cần tối thiểu **${MIN_PLAYERS}** người (tối đa ${MAX_PLAYERS}).\n` +
-                            `Bấm nút bên dưới để tham gia!\n\n` +
-                            `**Người chơi (${players.length}):**\n${list}`
-                        );
-
-                    await btnInteraction.update({ embeds: [updated] });
-                }
-            });
-
-            collector.on('end', () => {
-                const g = activeGames.get(gameChannelId);
-                if (g && g.state === STATE.LOBBY) {
-                    activeGames.delete(gameChannelId);
-                    lobbyMsg.edit({ components: [] }).catch(() => {});
-                }
-            });
-
-            return;
+            await interaction.editReply({ content: '🔄 Đã dừng ván cũ (nếu có) và dọn dẹp xong. Đang tạo lobby mới...' });
+            return createLobby(interaction, client, config, guildId);
         }
 
         // ── /masoi start ────────────────────────────────
