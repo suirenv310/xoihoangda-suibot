@@ -140,8 +140,8 @@ function getRoleDistribution(playerCount) {
     if (playerCount === 6) return { [ROLE.WEREWOLF]: 1, [ROLE.GUARD]: 1 };
     // 7:  Sói=2, BảoVệ=1, TiênTri=1 → Dân=3
     if (playerCount === 7) return { [ROLE.WEREWOLF]: 2, [ROLE.GUARD]: 1, [ROLE.SEER]: 1 };
-    // 8:  Sói=2, BảoVệ=1, TiênTri=1, BánSói=1 → Dân=3
-    if (playerCount === 8) return { [ROLE.WEREWOLF]: 2, [ROLE.GUARD]: 1, [ROLE.SEER]: 1, [ROLE.HALF_WOLF]: 1 };
+    // 8:  Sói=2, BảoVệ=1, TiênTri=1, ThợSăn=1 → Dân=3
+    if (playerCount === 8) return { [ROLE.WEREWOLF]: 2, [ROLE.GUARD]: 1, [ROLE.SEER]: 1, [ROLE.HUNTER]: 1 };
     // 9:  Sói=2, BảoVệ=1, TiênTri=1, PhùThủy=1, ThợSăn=1, BánSói=1 → Dân=2
     if (playerCount === 9) return { [ROLE.WEREWOLF]: 2, [ROLE.GUARD]: 1, [ROLE.SEER]: 1, [ROLE.WITCH]: 1, [ROLE.HUNTER]: 1, [ROLE.HALF_WOLF]: 1 };
     // 10: Sói=2, BảoVệ=1, TiênTri=1, PhùThủy=1, ThợSăn=1, BánSói=1 → Dân=3
@@ -152,10 +152,10 @@ function getRoleDistribution(playerCount) {
     if (playerCount === 12) return { [ROLE.WEREWOLF]: 2, [ROLE.WOLF_SEER]: 1, [ROLE.GUARD]: 1, [ROLE.SEER]: 1, [ROLE.WITCH]: 1, [ROLE.HUNTER]: 1, [ROLE.JAILER]: 1, [ROLE.APPRENTICE_SEER]: 1, [ROLE.HALF_WOLF]: 1, [ROLE.CUPID]: 1 };
     // 13: Sói=2, SóiTT=1, BảoVệ=1, TiênTri=1, PhùThủy=1, ThợSăn=1, QuảnNgục=1, BánSói=1, Cupid=1 → Dân=3
     if (playerCount === 13) return { [ROLE.WEREWOLF]: 2, [ROLE.WOLF_SEER]: 1, [ROLE.GUARD]: 1, [ROLE.SEER]: 1, [ROLE.WITCH]: 1, [ROLE.HUNTER]: 1, [ROLE.JAILER]: 1, [ROLE.HALF_WOLF]: 1, [ROLE.CUPID]: 1 };
-    // 14: Sói=3, SóiTT=1, BảoVệ=1, TiênTri=1, PhùThủy=1, ThợSăn=1, QuảnNgục=1, TTTậpSự=1, BánSói=1, Cupid=1 → Dân=2
-    if (playerCount === 14) return { [ROLE.WEREWOLF]: 3, [ROLE.WOLF_SEER]: 1, [ROLE.GUARD]: 1, [ROLE.SEER]: 1, [ROLE.WITCH]: 1, [ROLE.HUNTER]: 1, [ROLE.JAILER]: 1, [ROLE.APPRENTICE_SEER]: 1, [ROLE.HALF_WOLF]: 1, [ROLE.CUPID]: 1 };
-    // 15: Sói=3, SóiTT=1, BảoVệ=1, TiênTri=1, PhùThủy=1, ThợSăn=1, QuảnNgục=1, TTTậpSự=1, BánSói=1, Cupid=1, ThằngKhờ=1 → Dân=1
-    if (playerCount === 15) return { [ROLE.WEREWOLF]: 3, [ROLE.WOLF_SEER]: 1, [ROLE.GUARD]: 1, [ROLE.SEER]: 1, [ROLE.WITCH]: 1, [ROLE.HUNTER]: 1, [ROLE.JAILER]: 1, [ROLE.APPRENTICE_SEER]: 1, [ROLE.HALF_WOLF]: 1, [ROLE.CUPID]: 1, [ROLE.FOOL]: 1 };
+    // 14: Sói=2, SóiTT=1, BảoVệ=1, TiênTri=1, PhùThủy=1, ThợSăn=1, QuảnNgục=1, TTTậpSự=1, BánSói=1, Cupid=1 → Dân=3
+    if (playerCount === 14) return { [ROLE.WEREWOLF]: 2, [ROLE.WOLF_SEER]: 1, [ROLE.GUARD]: 1, [ROLE.SEER]: 1, [ROLE.WITCH]: 1, [ROLE.HUNTER]: 1, [ROLE.JAILER]: 1, [ROLE.APPRENTICE_SEER]: 1, [ROLE.HALF_WOLF]: 1, [ROLE.CUPID]: 1 };
+    // 15: Sói=2, SóiTT=1, BảoVệ=1, TiênTri=1, PhùThủy=1, ThợSăn=1, QuảnNgục=1, TTTậpSự=1, BánSói=1, Cupid=1, ThằngKhờ=1 → Dân=2
+    if (playerCount === 15) return { [ROLE.WEREWOLF]: 2, [ROLE.WOLF_SEER]: 1, [ROLE.GUARD]: 1, [ROLE.SEER]: 1, [ROLE.WITCH]: 1, [ROLE.HUNTER]: 1, [ROLE.JAILER]: 1, [ROLE.APPRENTICE_SEER]: 1, [ROLE.HALF_WOLF]: 1, [ROLE.CUPID]: 1, [ROLE.FOOL]: 1 };
     // 16: Sói=3, SóiTT=1, BảoVệ=1, TiênTri=1, PhùThủy=1, ThợSăn=1, QuảnNgục=1, TTTậpSự=1, BánSói=2, Cupid=1, ThằngKhờ=1 → Dân=2
     if (playerCount === 16) return { [ROLE.WEREWOLF]: 3, [ROLE.WOLF_SEER]: 1, [ROLE.GUARD]: 1, [ROLE.SEER]: 1, [ROLE.WITCH]: 1, [ROLE.HUNTER]: 1, [ROLE.JAILER]: 1, [ROLE.APPRENTICE_SEER]: 1, [ROLE.HALF_WOLF]: 2, [ROLE.CUPID]: 1, [ROLE.FOOL]: 1 };
     // 17: Sói=3, SóiTT=1, BảoVệ=1, TiênTri=1, PhùThủy=1, ThợSăn=1, QuảnNgục=1, TTTậpSự=1, BánSói=2, Cupid=1, ThằngKhờ=1 → Dân=3
@@ -191,9 +191,12 @@ function isCrossFactionCouple(game) {
     return (aWolf && !bWolf) || (!aWolf && bWolf);
 }
 
+// Note: returns the Cupid player regardless of alive status — a dead Cupid
+// still shares the couple's win (per spec), and checkWin() separately checks
+// .alive where it matters (exclusion from the "all others dead" check).
 function getCupidPlayer(game) {
     if (!game.cupidCouple) return null;
-    return game.getPlayerByRole(ROLE.CUPID);
+    return [...game.players.values()].find(p => p.role === ROLE.CUPID) || null;
 }
 
 function isPlayerInCouple(game, id) {
@@ -752,10 +755,11 @@ class WerewolfGame {
         }
 
         if (this.winner === WINNER.VILLAGE) {
+            // Credit every village-faction player regardless of alive status —
+            // a villager who died mid-game still belongs to the winning team.
             const cupidThirdParty = isCrossFactionCouple(this);
             return [...this.players.values()]
                 .filter(p => {
-                    if (!p.alive) return false;
                     if (p.role === ROLE.WEREWOLF || p.role === ROLE.WOLF_SEER) return false;
                     if (p.role === ROLE.HALF_WOLF && p.transformed) return false;
                     if (p.role === ROLE.CUPID && cupidThirdParty) return false;
@@ -765,8 +769,11 @@ class WerewolfGame {
         }
 
         if (this.winner === WINNER.WOLF) {
+            // Credit every wolf-faction player regardless of alive status (a
+            // wolf hanged or shot earlier still belongs to the winning team).
+            // Not using isWolfTeam() here since it filters out dead players.
             return [...this.players.values()]
-                .filter(p => p.alive && isWolfTeam(p))
+                .filter(p => p.role === ROLE.WEREWOLF || p.role === ROLE.WOLF_SEER || (p.role === ROLE.HALF_WOLF && p.transformed))
                 .map(p => p.discordId);
         }
 
